@@ -296,27 +296,21 @@ func initializeConfiguration(d KubernetesPatchProviderModel) (*restclient.Config
 			loader.Precedence = expandedPaths
 		}
 
-		ctxSuffix := "; default context"
-
 		kubectx := d.ConfigContext.ValueStringPointer()
 		authInfo := d.ConfigContextAuthInfo.ValueStringPointer()
 		cluster := d.ConfigContextCluster.ValueStringPointer()
 		if kubectx != nil || authInfo != nil || cluster != nil {
-			ctxSuffix = "; overridden context"
 			if kubectx != nil {
 				overrides.CurrentContext = *kubectx
-				ctxSuffix += fmt.Sprintf("; config ctx: %s", overrides.CurrentContext)
 				log.Printf("[DEBUG] Using custom current context: %q", overrides.CurrentContext)
 			}
 
 			overrides.Context = clientcmdapi.Context{}
 			if authInfo != nil {
 				overrides.Context.AuthInfo = *authInfo
-				ctxSuffix += fmt.Sprintf("; auth_info: %s", overrides.Context.AuthInfo)
 			}
 			if cluster != nil {
 				overrides.Context.Cluster = *cluster
-				ctxSuffix += fmt.Sprintf("; cluster: %s", overrides.Context.Cluster)
 			}
 			log.Printf("[DEBUG] Using overridden context: %#v", overrides.Context)
 		}
@@ -370,7 +364,7 @@ func initializeConfiguration(d KubernetesPatchProviderModel) (*restclient.Config
 		exec.InteractiveMode = clientcmdapi.IfAvailableExecInteractiveMode
 		exec.APIVersion = spec.APIVersion.String()
 		exec.Command = spec.Command.String()
-		exec.Args = expandStringSliceV2(spec.Args)
+		exec.Args = expandStringSlice(spec.Args)
 		for kk, vv := range spec.Env {
 			exec.Env = append(exec.Env, clientcmdapi.ExecEnvVar{Name: kk, Value: vv.String()})
 		}
@@ -392,20 +386,7 @@ func initializeConfiguration(d KubernetesPatchProviderModel) (*restclient.Config
 	return cfg, diags
 }
 
-func expandStringSlice(s []interface{}) []string {
-	result := make([]string, len(s))
-	for k, v := range s {
-		// Handle the Terraform parser bug which turns empty strings in lists to nil.
-		if v == nil {
-			result[k] = ""
-		} else {
-			result[k] = v.(string)
-		}
-	}
-	return result
-}
-
-func expandStringSliceV2(s []types.String) []string {
+func expandStringSlice(s []types.String) []string {
 	result := make([]string, len(s))
 	for k, v := range s {
 		result[k] = v.String()
