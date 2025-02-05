@@ -12,18 +12,16 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
 	"github.com/hashicorp/terraform-plugin-framework/function"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/mitchellh/go-homedir"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	apimachineryschema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -211,17 +209,13 @@ func (p *KubernetesPatchProvider) Configure(ctx context.Context, req provider.Co
 
 	// Configuration values are now available.
 	// if data.Endpoint.IsNull() { /* ... */ }
-
-	cfg := &rest.Config{}
-	if !data.Host.IsNull() {
-		cfg.Host = data.Host.String()
-	}
-	if !data.ClusterCACertificate.IsNull() {
-		cfg.CAData
+	restClient, diags := initializeConfiguration(data)
+	if diags.HasError() {
+		resp.Diagnostics.Append(diags...)
 	}
 
 	// create the clientset
-	clientset, err := kubernetes.NewForConfig(cfg)
+	clientset, err := kubernetes.NewForConfig(restClient)
 	if err != nil {
 		resp.Diagnostics.AddError("could not get clientset", err.Error())
 		return
@@ -257,7 +251,7 @@ func (p *KubernetesPatchProvider) Functions(ctx context.Context) []func() functi
 	}
 }
 
-func New(version string, sdkv2Meta func() any) func() provider.Provider {
+func New(version string) func() provider.Provider {
 	return func() provider.Provider {
 		return &KubernetesPatchProvider{
 			version: version,
@@ -289,7 +283,7 @@ func initializeConfiguration(d KubernetesPatchProviderModel) (*restclient.Config
 		for _, p := range configPaths {
 			path, err := homedir.Expand(p)
 			if err != nil {
-				return nil, append(diags, diag.FromErr(err)...)
+				return nil, append(diags, diag.NewErrorDiagnostic("could not expand homedir", err.Error()))
 			}
 
 			log.Printf("[DEBUG] Using kubeconfig: %s", path)
@@ -351,12 +345,7 @@ func initializeConfiguration(d KubernetesPatchProviderModel) (*restclient.Config
 		defaultTLS := (hasCA || hasCert) && !overrides.ClusterInfo.InsecureSkipTLSVerify
 		host, _, err := restclient.DefaultServerURL(*v, "", apimachineryschema.GroupVersion{}, defaultTLS)
 		if err != nil {
-			nd := diag.Diagnostic{
-				Severity:      diag.Error,
-				Summary:       fmt.Sprintf("Failed to parse value for host: %s", *v),
-				Detail:        err.Error(),
-				AttributePath: cty.Path{}.IndexString("host"),
-			}
+			nd := diag.NewErrorDiagnostic(fmt.Sprintf("Failed to parse value for host: %s", *v), err.Error())
 			return nil, append(diags, nd)
 		}
 		overrides.ClusterInfo.Server = host.String()
@@ -395,11 +384,7 @@ func initializeConfiguration(d KubernetesPatchProviderModel) (*restclient.Config
 	cc := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loader, overrides)
 	cfg, err := cc.ClientConfig()
 	if err != nil {
-		nd := diag.Diagnostic{
-			Severity: diag.Warning,
-			Summary:  "Provider was supplied an invalid configuration. Further operations likely to fail.",
-			Detail:   err.Error(),
-		}
+		nd := diag.NewWarningDiagnostic("Provider was supplied an invalid configuration. Further operations likely to fail.", err.Error())
 		log.Printf("[WARN] Provider was supplied an invalid configuration. Further operations likely to fail: %v", err)
 		return nil, append(diags, nd)
 	}
