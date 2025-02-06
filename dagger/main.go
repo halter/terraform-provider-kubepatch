@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 // A generated module for TerraformProviderKubernetesPatch functions
 //
 // This module has been generated via dagger init and serves as a reference to
