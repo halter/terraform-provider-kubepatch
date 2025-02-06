@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -17,6 +16,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8stypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -29,7 +31,7 @@ func NewPatchResource() resource.Resource {
 
 // PatchResource defines the resource implementation.
 type PatchResource struct {
-	client *http.Client
+	client *kubernetes.Clientset
 }
 
 // PatchResourceModel describes the resource data model.
@@ -59,6 +61,34 @@ func (r *PatchResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 			"resource": schema.StringAttribute{
 				MarkdownDescription: "Kubernetes API resource",
 				Required:            true,
+				Validators: []validator.String{
+					stringvalidator.OneOf(
+						"bindings",
+						"componentstatuses",
+						"configmaps",
+						"endpoints",
+						"events",
+						"limitranges",
+						"namespaces",
+						"nodes",
+						"persistentvolumeclaims",
+						"persistentvolumes",
+						"pods",
+						"podtemplates",
+						"replicationcontrollers",
+						"resourcequotas",
+						"secrets",
+						"serviceaccounts",
+						"services",
+						"controllerrevisions",
+						"daemonsets",
+						"deployments",
+						"replicasets",
+						"statefulsets",
+						"cronjobs",
+						"jobs",
+					),
+				},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Kubernetes API resource name",
@@ -92,7 +122,7 @@ func (r *PatchResource) Configure(ctx context.Context, req resource.ConfigureReq
 		return
 	}
 
-	client, ok := req.ProviderData.(*http.Client)
+	client, ok := req.ProviderData.(*kubernetes.Clientset)
 
 	if !ok {
 		resp.Diagnostics.AddError(
@@ -132,8 +162,80 @@ func (r *PatchResource) Create(ctx context.Context, req resource.CreateRequest, 
 	// Documentation: https://terraform.io/plugin/log
 	tflog.Trace(ctx, "created a resource")
 
+	err := r.patch(ctx, data)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to patch, got error: %s", err))
+		return
+	}
+
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+func (r *PatchResource) patch(ctx context.Context, data PatchResourceModel) error {
+	var pt k8stypes.PatchType
+	switch t := data.Type.ValueString(); t {
+	case "json":
+		pt = k8stypes.JSONPatchType
+	case "merge":
+		pt = k8stypes.MergePatchType
+	case "strategic":
+		pt = k8stypes.StrategicMergePatchType
+	}
+
+	namespace := data.Namespace.ValueString()
+
+	var err error
+	switch res := data.Resource.ValueString(); res {
+	case "componentstatuses":
+		_, err = r.client.CoreV1().ComponentStatuses().Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "configmaps":
+		_, err = r.client.CoreV1().ConfigMaps(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "endpoints":
+		_, err = r.client.CoreV1().Endpoints(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "events":
+		_, err = r.client.CoreV1().Events(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "limitranges":
+		_, err = r.client.CoreV1().LimitRanges(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "namespaces":
+		_, err = r.client.CoreV1().Namespaces().Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "nodes":
+		_, err = r.client.CoreV1().Nodes().Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "persistentvolumeclaims":
+		_, err = r.client.CoreV1().PersistentVolumeClaims(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "persistentvolumes":
+		_, err = r.client.CoreV1().PersistentVolumes().Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "pods":
+		_, err = r.client.CoreV1().Pods(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "podtemplates":
+		_, err = r.client.CoreV1().PodTemplates(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "replicationcontrollers":
+		_, err = r.client.CoreV1().ReplicationControllers(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "resourcequotas":
+		_, err = r.client.CoreV1().ResourceQuotas(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "secrets":
+		_, err = r.client.CoreV1().Secrets(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "serviceaccounts":
+		_, err = r.client.CoreV1().ServiceAccounts(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "services":
+		_, err = r.client.CoreV1().Services(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "controllerrevisions":
+		_, err = r.client.AppsV1().ControllerRevisions(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "daemonsets":
+		_, err = r.client.AppsV1().DaemonSets(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "deployments":
+		_, err = r.client.AppsV1().Deployments(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "replicasets":
+		_, err = r.client.AppsV1().ReplicaSets(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "statefulsets":
+		_, err = r.client.AppsV1().StatefulSets(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "cronjobs":
+		_, err = r.client.BatchV1().CronJobs(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "jobs":
+		_, err = r.client.BatchV1().Jobs(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	}
+
+	return err
 }
 
 func (r *PatchResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -175,6 +277,11 @@ func (r *PatchResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	//     resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update example, got error: %s", err))
 	//     return
 	// }
+	err := r.patch(ctx, data)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to patch, got error: %s", err))
+		return
+	}
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
