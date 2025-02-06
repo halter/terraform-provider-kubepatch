@@ -1,7 +1,7 @@
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-// A generated module for TerraformProviderKubernetesPatch functions
+// A generated module for TerraformProviderKubepatch functions
 //
 // This module has been generated via dagger init and serves as a reference to
 // basic module structure as you get started with Dagger.
@@ -25,18 +25,18 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type TerraformProviderKubernetesPatch struct {
+type TerraformProviderKubepatch struct {
 	Sock       *dagger.Socket
 	kubeconfig *KubeConfig
 }
 
-func New(sock *dagger.Socket) *TerraformProviderKubernetesPatch {
-	return &TerraformProviderKubernetesPatch{
+func New(sock *dagger.Socket) *TerraformProviderKubepatch {
+	return &TerraformProviderKubepatch{
 		Sock: sock,
 	}
 }
 
-func (m *TerraformProviderKubernetesPatch) BuildTestEnv(ctx context.Context, source *dagger.Directory) *dagger.Container {
+func (m *TerraformProviderKubepatch) BuildTestEnv(ctx context.Context, source *dagger.Directory) *dagger.Container {
 	goCache := dag.CacheVolume("go")
 	goModCache := dag.CacheVolume("go-mod")
 	container := dag.Container().
@@ -76,7 +76,7 @@ func (m *TerraformProviderKubernetesPatch) BuildTestEnv(ctx context.Context, sou
 		WithEnvVariable("KUBEPATCH_CLIENT_KEY", kubeConfig.Users[0].User.ClientKeyData)
 }
 
-func (m *TerraformProviderKubernetesPatch) SetupTestFixtures(ctx context.Context, source *dagger.Directory) *dagger.Container {
+func (m *TerraformProviderKubepatch) SetupTestFixtures(ctx context.Context, source *dagger.Directory) *dagger.Container {
 	container := m.BuildTestEnv(ctx, source)
 
 	b, _ := yaml.Marshal(m.kubeconfig)
@@ -92,7 +92,7 @@ func (m *TerraformProviderKubernetesPatch) SetupTestFixtures(ctx context.Context
 	return container
 }
 
-func (m *TerraformProviderKubernetesPatch) Test(ctx context.Context, source *dagger.Directory) {
+func (m *TerraformProviderKubepatch) Test(ctx context.Context, source *dagger.Directory) {
 	c := m.SetupTestFixtures(ctx, source)
 	c.WithExec([]string{"make", "testacc"}).Stdout(ctx)
 	return
