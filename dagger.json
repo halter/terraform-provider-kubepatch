@@ -1,5 +1,5 @@
 {
-  "name": "terraform-provider-kubernetes-patch",
+  "name": "terraform-provider-kubepatch",
   "engineVersion": "v0.15.1",
   "sdk": "go",
   "source": "dagger"

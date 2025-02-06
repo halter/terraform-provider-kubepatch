@@ -1,4 +1,4 @@
-module dagger/terraform-provider-kubernetes-patch
+module dagger/terraform-provider-kubepatch
 
 go 1.23.2
 

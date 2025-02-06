@@ -8,7 +8,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/halter/terraform-provider-kubernetes-patch/internal/provider"
+	"github.com/halter/terraform-provider-kubepatch/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 )
 

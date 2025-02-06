@@ -19,7 +19,7 @@ package main
 
 import (
 	"context"
-	"dagger/terraform-provider-kubernetes-patch/internal/dagger"
+	"dagger/terraform-provider-kubepatch/internal/dagger"
 	"strings"
 
 	"gopkg.in/yaml.v3"

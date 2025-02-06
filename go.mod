@@ -1,4 +1,4 @@
-module github.com/halter/terraform-provider-kubernetes-patch
+module github.com/halter/terraform-provider-kubepatch
 
 go 1.23.0
 
