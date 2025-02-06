@@ -4,7 +4,6 @@
 package provider
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -20,7 +19,7 @@ func TestAccPatchResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccPatchResourceConfig("one"),
+				Config: testAccPatchResourceConfig(),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"kubernetes_patch.test",
@@ -52,7 +51,7 @@ func TestAccPatchResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccPatchResourceConfig("two"),
+				Config: testAccPatchResourceConfig(),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"kubernetes_patch.test",
@@ -76,10 +75,26 @@ func TestAccPatchResource(t *testing.T) {
 	})
 }
 
-func testAccPatchResourceConfig(configurableAttribute string) string {
-	return fmt.Sprintf(`
-resource "kubernetes_patch" "test" {
-  configurable_attribute = %[1]q
+func testAccPatchResourceConfig() string {
+	return providerConfig + `
+resource "kubepatch_patch" "test" {
+  namespace = "default"
+  resource = "deployments"
+  name = "opentelemetry-operator-controller-manager"
+  type = "json"
+  data = jsonencode([
+    {
+      op = "replace"
+      path = "/spec/containers/0/args"
+      value = [
+        "--metrics-addr=127.0.0.1:8080",
+        "--enable-leader-election",
+        "--zap-log-level=info",
+        "--zap-time-encoding=rfc3339nano",
+        "--enable-nginx-instrumentation=true",
+      ]
+    },
+  ])
 }
-`, configurableAttribute)
+`
 }

@@ -3,7 +3,7 @@
 page_title: "kubepatch Provider"
 subcategory: ""
 description: |-
-  
+
 ---
 
 # kubepatch Provider
