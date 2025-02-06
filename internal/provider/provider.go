@@ -82,7 +82,7 @@ type KubernetesPatchProviderModel struct {
 }
 
 func (p *KubernetesPatchProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
-	resp.TypeName = "kubernetes_patch"
+	resp.TypeName = "kubepatch"
 	resp.Version = p.version
 }
 
@@ -229,26 +229,20 @@ func (p *KubernetesPatchProvider) Configure(ctx context.Context, req provider.Co
 
 func (p *KubernetesPatchProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		NewExampleResource,
+		NewPatchResource,
 	}
 }
 
 func (p *KubernetesPatchProvider) EphemeralResources(ctx context.Context) []func() ephemeral.EphemeralResource {
-	return []func() ephemeral.EphemeralResource{
-		NewExampleEphemeralResource,
-	}
+	return []func() ephemeral.EphemeralResource{}
 }
 
 func (p *KubernetesPatchProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{
-		NewExampleDataSource,
-	}
+	return []func() datasource.DataSource{}
 }
 
 func (p *KubernetesPatchProvider) Functions(ctx context.Context) []func() function.Function {
-	return []func() function.Function{
-		NewExampleFunction,
-	}
+	return []func() function.Function{}
 }
 
 func New(version string) func() provider.Provider {

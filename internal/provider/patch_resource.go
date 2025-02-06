@@ -13,7 +13,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -35,11 +34,16 @@ type PatchResource struct {
 
 // PatchResourceModel describes the resource data model.
 type PatchResourceModel struct {
-	Id types.String `tfsdk:"id"`
+	Namespace types.String `tfsdk:"namespace"`
+	Resource  types.String `tfsdk:"resource"`
+	Name      types.String `tfsdk:"name"`
+	Type      types.String `tfsdk:"type"`
+	Data      types.String `tfsdk:"data"`
+	Id        types.String `tfsdk:"id"`
 }
 
 func (r *PatchResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_example"
+	resp.TypeName = req.ProviderTypeName + "_patch"
 }
 
 func (r *PatchResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -50,8 +54,7 @@ func (r *PatchResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 		Attributes: map[string]schema.Attribute{
 			"namespace": schema.StringAttribute{
 				MarkdownDescription: "Kubernetes namespace",
-				Optional:            true,
-				Default:             stringdefault.StaticString("default"),
+				Required:            true,
 			},
 			"resource": schema.StringAttribute{
 				MarkdownDescription: "Kubernetes API resource",
