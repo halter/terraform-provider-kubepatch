@@ -19,7 +19,7 @@ func TestAccPatchResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccPatchResourceConfig(),
+				Config: testAccPatchResourceConfig(t),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"kubernetes_patch.test",
@@ -51,7 +51,7 @@ func TestAccPatchResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccPatchResourceConfig(),
+				Config: testAccPatchResourceConfig(t),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"kubernetes_patch.test",
@@ -75,8 +75,8 @@ func TestAccPatchResource(t *testing.T) {
 	})
 }
 
-func testAccPatchResourceConfig() string {
-	return providerConfig + `
+func testAccPatchResourceConfig(t *testing.T) string {
+	return providerConfig(t) + `
 resource "kubepatch_patch" "test" {
   namespace = "default"
   resource = "deployments"
@@ -85,14 +85,8 @@ resource "kubepatch_patch" "test" {
   data = jsonencode([
     {
       op = "replace"
-      path = "/spec/containers/0/args"
-      value = [
-        "--metrics-addr=127.0.0.1:8080",
-        "--enable-leader-election",
-        "--zap-log-level=info",
-        "--zap-time-encoding=rfc3339nano",
-        "--enable-nginx-instrumentation=true",
-      ]
+      path = "/spec/template/spec/containers/0/args"
+      value = ["--metrics-addr=127.0.0.1:8080", "--enable-leader-election", "--zap-log-level=info", "--zap-time-encoding=rfc3339nano", "--enable-nginx-instrumentation=true", "--enable-go-instrumentation=true"]
     },
   ])
 }

@@ -1,0 +1,246 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: opentelemetry-operator
+    control-plane: controller-manager
+    olm.deployment-spec-hash: 1kecti15xeBBZ86UiKfwDn5v48u6szQvlzCcnD
+  name: opentelemetry-operator-controller-manager
+  namespace: default
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: opentelemetry-operator
+      control-plane: controller-manager
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        alm-examples: |-
+          [
+            {
+              "apiVersion": "opentelemetry.io/v1alpha1",
+              "kind": "Instrumentation",
+              "metadata": {
+                "name": "instrumentation"
+              },
+              "spec": {
+                "exporter": {
+                  "endpoint": "http://otel-collector-headless:4317"
+                }
+              }
+            },
+            {
+              "apiVersion": "opentelemetry.io/v1alpha1",
+              "kind": "OpAMPBridge",
+              "metadata": {
+                "name": "opampbridge-sample"
+              },
+              "spec": {
+                "capabilities": {
+                  "AcceptsOpAMPConnectionSettings": true,
+                  "AcceptsOtherConnectionSettings": true,
+                  "AcceptsRemoteConfig": true,
+                  "AcceptsRestartCommand": true,
+                  "ReportsEffectiveConfig": true,
+                  "ReportsHealth": true,
+                  "ReportsOwnLogs": true,
+                  "ReportsOwnMetrics": true,
+                  "ReportsOwnTraces": true,
+                  "ReportsRemoteConfig": true,
+                  "ReportsStatus": true
+                },
+                "componentsAllowed": {
+                  "exporters": [
+                    "debug"
+                  ],
+                  "processors": [
+                    "memory_limiter"
+                  ],
+                  "receivers": [
+                    "otlp"
+                  ]
+                },
+                "endpoint": "ws://opamp-server:4320/v1/opamp"
+              }
+            },
+            {
+              "apiVersion": "opentelemetry.io/v1alpha1",
+              "kind": "OpenTelemetryCollector",
+              "metadata": {
+                "name": "otel"
+              },
+              "spec": {
+                "config": "receivers:\n  otlp:\n    protocols: \n      grpc: {}\n      http: {}\n\nexporters:\n  debug: {}\n\nservice:\n  pipelines:\n    traces:\n      receivers: [otlp]\n      exporters: [debug]\n"
+              }
+            },
+            {
+              "apiVersion": "opentelemetry.io/v1beta1",
+              "kind": "OpenTelemetryCollector",
+              "metadata": {
+                "name": "otel"
+              },
+              "spec": {
+                "config": {
+                  "exporters": {
+                    "debug": {}
+                  },
+                  "receivers": {
+                    "otlp": {
+                      "protocols": {
+                        "grpc": {},
+                        "http": {}
+                      }
+                    }
+                  },
+                  "service": {
+                    "pipelines": {
+                      "traces": {
+                        "exporters": [
+                          "debug"
+                        ],
+                        "receivers": [
+                          "otlp"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        capabilities: Deep Insights
+        categories: Logging & Tracing,Monitoring
+        certified: "false"
+        containerImage: ghcr.io/open-telemetry/opentelemetry-operator/opentelemetry-operator
+        description: Provides the OpenTelemetry components, including the Collector
+        olm.operatorGroup: global-operators
+        olm.operatorNamespace: operators
+        olm.targetNamespaces: ""
+        operators.operatorframework.io/builder: operator-sdk-v1.29.0
+        operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
+        repository: github.com/open-telemetry/opentelemetry-operator
+        support: OpenTelemetry Community
+      labels:
+        app.kubernetes.io/name: opentelemetry-operator
+        control-plane: controller-manager
+    spec:
+      containers:
+      - args:
+        - --metrics-addr=127.0.0.1:8080
+        - --enable-leader-election
+        - --zap-log-level=info
+        - --zap-time-encoding=rfc3339nano
+        - --enable-nginx-instrumentation=true
+        env:
+        - name: SERVICE_ACCOUNT_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.serviceAccountName
+        - name: OPERATOR_CONDITION_NAME
+          value: opentelemetry-operator.v0.117.0
+        image: ghcr.io/open-telemetry/opentelemetry-operator/opentelemetry-operator:0.117.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 8081
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /readyz
+            port: 8081
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: webhook-cert
+        - mountPath: /apiserver.local.config/certificates
+          name: apiservice-cert
+      - args:
+        - --secure-listen-address=0.0.0.0:8443
+        - --upstream=http://127.0.0.1:8080/
+        - --logtostderr=true
+        - --v=0
+        env:
+        - name: OPERATOR_CONDITION_NAME
+          value: opentelemetry-operator.v0.117.0
+        image: quay.io/brancz/kube-rbac-proxy:v0.13.1
+        imagePullPolicy: IfNotPresent
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: https
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 5m
+            memory: 64Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /apiserver.local.config/certificates
+          name: apiservice-cert
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: webhook-cert
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: opentelemetry-operator-controller-manager
+      serviceAccountName: opentelemetry-operator-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: opentelemetry-operator-controller-manager-service-cert
+      - name: apiservice-cert
+        secret:
+          defaultMode: 420
+          items:
+          - key: tls.crt
+            path: apiserver.crt
+          - key: tls.key
+            path: apiserver.key
+          secretName: opentelemetry-operator-controller-manager-service-cert
+      - name: webhook-cert
+        secret:
+          defaultMode: 420
+          items:
+          - key: tls.crt
+            path: tls.crt
+          - key: tls.key
+            path: tls.key
+          secretName: opentelemetry-operator-controller-manager-service-cert

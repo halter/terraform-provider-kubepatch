@@ -4,22 +4,12 @@
 package provider
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-)
-
-const (
-	// providerConfig is a shared configuration to combine with the actual
-	// test configuration so the HashiCups client is properly configured.
-	// It is also possible to use the HASHICUPS_ environment variables instead,
-	// such as updating the Makefile and running the testing through that tool.
-	providerConfig = `
-provider "kubepatch" {
-  host = "localhost"
-}
-`
 )
 
 // testAccProtoV6ProviderFactories is used to instantiate a provider during acceptance testing.
@@ -42,4 +32,32 @@ func testAccPreCheck(t *testing.T) {
 	// You can add code here to run prior to any test case execution, for example assertions
 	// about the appropriate environment variables being set are common to see in a pre-check
 	// function.
+}
+
+func providerConfig(t *testing.T) string {
+	host := os.Getenv("KUBEPATCH_HOST")
+	if host == "" {
+		t.Fatal("KUBEPATCH_HOST must be set for acceptance tests")
+	}
+	clusterCaCertificate := os.Getenv("KUBEPATCH_CLUSTER_CA_CERTIFICATE")
+	if clusterCaCertificate == "" {
+		t.Fatal("KUBEPATCH_CLUSTER_CA_CERTIFICATE must be set for acceptance tests")
+	}
+	clientCertificate := os.Getenv("KUBEPATCH_CLIENT_CERTIFICATE")
+	if clientCertificate == "" {
+		t.Fatal("KUBEPATCH_CLIENT_CERTIFICATE must be set for acceptance tests")
+	}
+	clientKey := os.Getenv("KUBEPATCH_CLIENT_KEY")
+	if clientKey == "" {
+		t.Fatal("KUBEPATCH_CLIENT_KEY must be set for acceptance tests")
+	}
+
+	return fmt.Sprintf(`
+provider "kubepatch" {
+  host = "%[1]s"
+  cluster_ca_certificate = base64decode("%[2]s")
+  client_certificate = base64decode("%[3]s")
+  client_key = base64decode("%[4]s")
+}
+`, host, clusterCaCertificate, clientCertificate, clientKey)
 }
