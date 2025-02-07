@@ -1,3 +1,3 @@
-provider "scaffolding" {
+provider "kubepatch" {
   # example configuration here
 }
