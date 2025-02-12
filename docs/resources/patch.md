@@ -23,6 +23,10 @@ Patch resource
 - `resource` (String) Kubernetes API resource
 - `type` (String) The type of patch being provided; one of [json merge strategic]
 
+### Optional
+
+- `triggers` (Map of String) Map of arbitrary keys and values that, when changed, will trigger a redeployment.
+
 ### Read-Only
 
 - `id` (String) Example identifier
