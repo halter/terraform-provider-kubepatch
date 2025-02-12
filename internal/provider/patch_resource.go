@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -41,6 +42,7 @@ type PatchResourceModel struct {
 	Name      types.String `tfsdk:"name"`
 	Type      types.String `tfsdk:"type"`
 	Data      types.String `tfsdk:"data"`
+	Triggers  types.Map    `tfsdk:"triggers"`
 	Id        types.String `tfsdk:"id"`
 }
 
@@ -104,6 +106,14 @@ func (r *PatchResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 			"data": schema.StringAttribute{
 				MarkdownDescription: "The patch to be applied to the resource JSON file.",
 				Required:            true,
+			},
+			"triggers": schema.MapAttribute{
+				MarkdownDescription: "Map of arbitrary keys and values that, when changed, will trigger a redeployment.",
+				ElementType:         types.StringType,
+				Optional:            true,
+				PlanModifiers: []planmodifier.Map{
+					mapplanmodifier.RequiresReplace(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
