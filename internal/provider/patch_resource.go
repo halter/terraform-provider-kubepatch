@@ -89,6 +89,7 @@ func (r *PatchResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 						"statefulsets",
 						"cronjobs",
 						"jobs",
+						"validatingwebhookconfiguration",
 					),
 				},
 			},
@@ -243,6 +244,8 @@ func (r *PatchResource) patch(ctx context.Context, data PatchResourceModel) erro
 		_, err = r.client.BatchV1().CronJobs(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "jobs":
 		_, err = r.client.BatchV1().Jobs(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "validatingwebhookconfigurations":
+		_, err = r.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	}
 
 	return err
