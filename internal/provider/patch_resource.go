@@ -19,7 +19,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -32,7 +31,7 @@ func NewPatchResource() resource.Resource {
 
 // PatchResource defines the resource implementation.
 type PatchResource struct {
-	client *kubernetes.Clientset
+	clients *ProviderClients
 }
 
 // PatchResourceModel describes the resource data model.
@@ -57,8 +56,8 @@ func (r *PatchResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 
 		Attributes: map[string]schema.Attribute{
 			"namespace": schema.StringAttribute{
-				MarkdownDescription: "Kubernetes namespace",
-				Required:            true,
+				MarkdownDescription: "Kubernetes namespace (not required for cluster-scoped resources)",
+				Optional:            true,
 			},
 			"resource": schema.StringAttribute{
 				MarkdownDescription: "Kubernetes API resource",
@@ -90,6 +89,7 @@ func (r *PatchResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 						"cronjobs",
 						"jobs",
 						"validatingwebhookconfigurations",
+						"customresourcedefinitions",
 					),
 				},
 			},
@@ -133,18 +133,18 @@ func (r *PatchResource) Configure(ctx context.Context, req resource.ConfigureReq
 		return
 	}
 
-	client, ok := req.ProviderData.(*kubernetes.Clientset)
+	clients, ok := req.ProviderData.(*ProviderClients)
 
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ProviderClients, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 
 		return
 	}
 
-	r.client = client
+	r.clients = clients
 }
 
 func (r *PatchResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -159,7 +159,7 @@ func (r *PatchResource) Create(ctx context.Context, req resource.CreateRequest, 
 
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
-	// httpResp, err := r.client.Do(httpReq)
+	// httpResp, err := r.clients.Kubernetes.Do(httpReq)
 	// if err != nil {
 	//     resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create example, got error: %s", err))
 	//     return
@@ -199,53 +199,55 @@ func (r *PatchResource) patch(ctx context.Context, data PatchResourceModel) erro
 	var err error
 	switch res := data.Resource.ValueString(); res {
 	case "componentstatuses":
-		_, err = r.client.CoreV1().ComponentStatuses().Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.CoreV1().ComponentStatuses().Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "configmaps":
-		_, err = r.client.CoreV1().ConfigMaps(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.CoreV1().ConfigMaps(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "endpoints":
-		_, err = r.client.CoreV1().Endpoints(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.CoreV1().Endpoints(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "events":
-		_, err = r.client.CoreV1().Events(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.CoreV1().Events(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "limitranges":
-		_, err = r.client.CoreV1().LimitRanges(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.CoreV1().LimitRanges(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "namespaces":
-		_, err = r.client.CoreV1().Namespaces().Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.CoreV1().Namespaces().Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "nodes":
-		_, err = r.client.CoreV1().Nodes().Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.CoreV1().Nodes().Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "persistentvolumeclaims":
-		_, err = r.client.CoreV1().PersistentVolumeClaims(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.CoreV1().PersistentVolumeClaims(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "persistentvolumes":
-		_, err = r.client.CoreV1().PersistentVolumes().Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.CoreV1().PersistentVolumes().Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "pods":
-		_, err = r.client.CoreV1().Pods(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.CoreV1().Pods(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "podtemplates":
-		_, err = r.client.CoreV1().PodTemplates(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.CoreV1().PodTemplates(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "replicationcontrollers":
-		_, err = r.client.CoreV1().ReplicationControllers(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.CoreV1().ReplicationControllers(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "resourcequotas":
-		_, err = r.client.CoreV1().ResourceQuotas(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.CoreV1().ResourceQuotas(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "secrets":
-		_, err = r.client.CoreV1().Secrets(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.CoreV1().Secrets(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "serviceaccounts":
-		_, err = r.client.CoreV1().ServiceAccounts(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.CoreV1().ServiceAccounts(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "services":
-		_, err = r.client.CoreV1().Services(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.CoreV1().Services(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "controllerrevisions":
-		_, err = r.client.AppsV1().ControllerRevisions(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.AppsV1().ControllerRevisions(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "daemonsets":
-		_, err = r.client.AppsV1().DaemonSets(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.AppsV1().DaemonSets(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "deployments":
-		_, err = r.client.AppsV1().Deployments(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.AppsV1().Deployments(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "replicasets":
-		_, err = r.client.AppsV1().ReplicaSets(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.AppsV1().ReplicaSets(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "statefulsets":
-		_, err = r.client.AppsV1().StatefulSets(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.AppsV1().StatefulSets(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "cronjobs":
-		_, err = r.client.BatchV1().CronJobs(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.BatchV1().CronJobs(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "jobs":
-		_, err = r.client.BatchV1().Jobs(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.BatchV1().Jobs(namespace).Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	case "validatingwebhookconfigurations":
-		_, err = r.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+		_, err = r.clients.Kubernetes.AdmissionregistrationV1().ValidatingWebhookConfigurations().Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
+	case "customresourcedefinitions":
+		_, err = r.clients.ApiExtensions.ApiextensionsV1().CustomResourceDefinitions().Patch(ctx, data.Name.ValueString(), pt, []byte(data.Data.ValueString()), metav1.PatchOptions{})
 	}
 
 	return err
@@ -263,7 +265,7 @@ func (r *PatchResource) Read(ctx context.Context, req resource.ReadRequest, resp
 
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
-	// httpResp, err := r.client.Do(httpReq)
+	// httpResp, err := r.clients.Kubernetes.Do(httpReq)
 	// if err != nil {
 	//     resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read example, got error: %s", err))
 	//     return
@@ -285,7 +287,7 @@ func (r *PatchResource) Update(ctx context.Context, req resource.UpdateRequest, 
 
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
-	// httpResp, err := r.client.Do(httpReq)
+	// httpResp, err := r.clients.Kubernetes.Do(httpReq)
 	// if err != nil {
 	//     resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update example, got error: %s", err))
 	//     return
@@ -312,7 +314,7 @@ func (r *PatchResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
-	// httpResp, err := r.client.Do(httpReq)
+	// httpResp, err := r.clients.Kubernetes.Do(httpReq)
 	// if err != nil {
 	//     resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete example, got error: %s", err))
 	//     return

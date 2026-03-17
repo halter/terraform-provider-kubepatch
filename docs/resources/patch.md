@@ -19,12 +19,12 @@ Patch resource
 
 - `data` (String) The patch to be applied to the resource JSON file.
 - `name` (String) Kubernetes API resource name
-- `namespace` (String) Kubernetes namespace
 - `resource` (String) Kubernetes API resource
 - `type` (String) The type of patch being provided; one of [json merge strategic]
 
 ### Optional
 
+- `namespace` (String) Kubernetes namespace (not required for cluster-scoped resources)
 - `triggers` (Map of String) Map of arbitrary keys and values that, when changed, will trigger a redeployment.
 
 ### Read-Only

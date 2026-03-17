@@ -21,6 +21,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/mitchellh/go-homedir"
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -29,6 +30,12 @@ import (
 	restclient "k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
+
+// ProviderClients holds the Kubernetes clientsets used by resources.
+type ProviderClients struct {
+	Kubernetes    *kubernetes.Clientset
+	ApiExtensions *apiextensionsclientset.Clientset
+}
 
 // Ensure KubernetesPatchProvider satisfies various provider interfaces.
 var _ provider.Provider = &KubernetesPatchProvider{}
@@ -214,17 +221,28 @@ func (p *KubernetesPatchProvider) Configure(ctx context.Context, req provider.Co
 		resp.Diagnostics.Append(diags...)
 	}
 
-	// create the clientset
+	// create the clientsets
 	clientset, err := kubernetes.NewForConfig(restClient)
 	if err != nil {
 		resp.Diagnostics.AddError("could not get clientset", err.Error())
 		return
 	}
 
+	apiextClient, err := apiextensionsclientset.NewForConfig(restClient)
+	if err != nil {
+		resp.Diagnostics.AddError("could not get apiextensions clientset", err.Error())
+		return
+	}
+
+	providerData := &ProviderClients{
+		Kubernetes:    clientset,
+		ApiExtensions: apiextClient,
+	}
+
 	// Example client configuration for data sources and resources
 	client := http.DefaultClient
 	resp.DataSourceData = client
-	resp.ResourceData = clientset
+	resp.ResourceData = providerData
 }
 
 func (p *KubernetesPatchProvider) Resources(ctx context.Context) []func() resource.Resource {
